@@ -1,6 +1,6 @@
 # Análisis y Diseño - Sistema AeroLogic Web
 
-### 📋 Requisitos Identificados
+### Requisitos Identificados
 - **Funcionales:**
   - Gestión de aeropuertos, vuelos, pasajeros, tarifas, asientos y reservas.
   - Reserva de asientos con bloqueo de 60 minutos (TTL).
@@ -29,7 +29,7 @@
   - Modelo de datos fijo con 6 entidades.
   - Reglas de negocio definidas (regex, cálculo upgrade, TTL 60 min).
 
-### 🎯 Enfoque KISS Recomendado
+### Enfoque KISS Recomendado
 - **Solución núcleo:** API REST con FastAPI, SQLAlchemy (o SQLModel) para models, y PostgreSQL. La lógica de negocio se encapsula en servicios. La limpieza de reservas se implementa mediante un endpoint interno `/internal/cleanup` invocado por un cron externo cada minuto.
 - **Omisiones conscientes:**
   - Autenticación y autorización (se añade después).
@@ -43,7 +43,7 @@
   - Validaciones con Pydantic + regex.
   - Transacciones con SQLAlchemy para operaciones críticas (reserva, cancelación, cambio).
 
-### 🧩 Desglose del Problema
+### Desglose del Problema
 1. **Configuración inicial**
    - Entorno Python, FastAPI, SQLAlchemy/SQLModel, psycopg2-binary, Alembic.
    - Conexión a PostgreSQL.
@@ -81,13 +81,13 @@
    - Unitarias para servicios.
    - Integración para endpoints (pytest + test client).
 
-### ⚡ Optimizaciones Justificadas
+### Optimizaciones Justificadas
 - **Índices en columnas de búsqueda y filtro** (bajo costo, gran mejora).
 - **Transacciones con `select_for_update()`** en reserva para evitar condiciones de carrera (simple y eficaz).
 - **Uso de Enum nativos de PostgreSQL** (o check constraints vía SQLAlchemy) para campos de estado, mejora integridad.
 - **Cache en memoria de tarifas** (solo si hay alta frecuencia de cambios de asiento; se puede implementar con `lru_cache` y tiempo de vida corto). En MVP no necesario.
 
-### 📝 Plantilla para el Cliente
+### Plantilla para el Cliente
 
 **Preguntas para clarificar requisitos:**
 1. ¿Los vuelos tienen fecha/hora? El modelo actual no lo incluye; para itinerarios es esencial. ¿Cómo se manejará?
