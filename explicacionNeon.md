@@ -1,4 +1,4 @@
-Compañeros, he estado probando una pagina que me sirvio el semestre pasado con la materia de programación de software que se llama Neon creo que el profe la menciono en la clase del 14 de febrero para crear una base de datos y es gratis.
+Compañeros, he estado probando una pagina que me sirvio el semestre pasado con la materia de programación de software que se llama Neon Console, creo que el profe la menciono en la clase del 14 de febrero para crear una base de datos y es gratis. Les propongo usar esta pagina para hacer este proyecto si les parece bien.
 
 Estos fueron los pasos que realicé para dejar el backend conectado a la base de datos en Neon:
 
