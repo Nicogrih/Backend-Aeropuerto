@@ -1,156 +1,157 @@
-from fastapi import FastAPI
-from database import engine, Base
+from fastapi import FastAPI, Depends, HTTPException
+import uvicorn
+from sqlalchemy.orm import Session
 from sqlalchemy import text
-from database import SessionLocal
-import uuid
 
-#Importar modelos de la carpeta models
-from models.aeropuerto import Aeropuerto
-from models.vuelo import Vuelo
+from src.database.config import engine, Base, SessionLocal
+from src.entities.usuarios_entities import Usuarios
+from src.schemas.usuarios_schemas import (
+    UsuarioCreate,
+    UsuarioResponse,
+    UsuarioUpdate
+)
+# ==============================
+# Crear aplicación
+# ==============================
 
 app = FastAPI()
 
-#Crea las tablas automáticamente al iniciar
+# ==============================
+# Crear tablas automáticamente
+# ==============================
+
 Base.metadata.create_all(bind=engine)
 
-#Crea aeropuertos manualmente
-@app.post("/seed-aeropuertos")
-def seed_aeropuertos():
+# ==============================
+# Dependencia para la BD
+# ==============================
+
+def get_db():
     db = SessionLocal()
-
-    aeropuerto1 = Aeropuerto(
-        id=uuid.uuid4(),
-        nombre="El Dorado",
-        codigo_iata="BOG",
-        pais="Colombia",
-        es_internacional=True
-    )
-    
-    aeropuerto2 = Aeropuerto(
-        id=uuid.uuid4(),
-        nombre="JFK International",
-        codigo_iata="JFK",
-        pais="USA",
-        es_internacional=True
-    )
-
-    db.add(aeropuerto1)
-    db.add(aeropuerto2)
-    db.commit()
-    db.close()
-
-    return {"message": "Aeropuertos creados"}
-
-
-#Crea vuelos manualmente
-@app.post("/seed-vuelos")
-def seed_vuelos():
-    db = SessionLocal()
-
-    #Obtener aeropuertos existentes
-    aeropuertos = db.query(Aeropuerto).all()
-
-    if len(aeropuertos) < 2:
+    try:
+        yield db
+    finally:
         db.close()
-        return {"error": "necesitas al menos 2 aeropuertos"}
-    
-    vuelo1 = Vuelo(
-        numero_vuelo="AV001",
-        id_origen=aeropuertos[0].id,
-        id_destino=aeropuertos[1].id,
-        tipo="Internacional",
-        estado="Programado"
+
+
+# ==============================
+# insertando usuario de prueba en la tabla
+# ==============================
+
+@app.post("/crear-test")
+def crear_test(db: Session = Depends(get_db)):
+    nuevo = Usuarios(
+        nombre="Angel",
+        nombre_usuario="angel123",
+        email="angel@test.com",
+        contraseña_hash="123456"
     )
 
-    vuelo2 = Vuelo(
-        numero_vuelo="AV002",
-        id_origen=aeropuertos[1].id,
-        id_destino=aeropuertos[0].id,
-        tipo="Internacional",
-        estado="Programado"
-    )
-
-    db.add(vuelo1)
-    db.add(vuelo2)
+    db.add(nuevo)
     db.commit()
-    db.close()
 
-    return {"message": "Vuelos creados"}
+# ==============================
+# Crea usuarios manualmente 
+# ==============================
 
+@app.post("/usuarios", response_model=UsuarioResponse)
+def crear_usuario(usuario: UsuarioCreate, db: Session = Depends(get_db)):
 
-#Muestra los itinerarios existentes
-@app.get("/itinerarios")
-def listar_itinerarios():
-    db = SessionLocal()
-
-    vuelos = db.query(Vuelo).all()
-
-    resultado = []
-
-    for vuelo in vuelos:
-        resultado.append({
-            "id_vuelo": str(vuelo.id),
-            "numero_vuelo": vuelo.numero_vuelo,
-            "origen": {
-                "id_aeropuerto": str(vuelo.origen.id),
-                "nombre": vuelo.origen.nombre
-                },
-            "destino": {
-                "id_aeropuerto": str(vuelo.destino.id),
-                "nombre": vuelo.destino.nombre
-                },
-            "tipo": vuelo.tipo,
-            "estado": vuelo.estado
-        })
-
-    db.close()
-    return resultado
-
-
-#Borra vuelos
-@app.delete("/vuelos/{vuelo_id}")
-def eliminar_vuelo(vuelo_id: str):
-    db = SessionLocal()
-
-    vuelo = db.query(Vuelo).filter(Vuelo.id == vuelo_id).first()
-
-    if not vuelo:
-        db.close()
-        return {"error": "Vuelo no encontrado"}
-
-    db.delete(vuelo)
-    db.commit()
-    db.close()
-
-    return {"message": "Vuelo eliminado correctamente"}
-
-#Borra aeropuertos
-@app.delete("/aeropuertos/{aeropuerto_id}")
-def eliminar_aeropuerto(aeropuerto_id: str):
-    db = SessionLocal()
-
-    aeropuerto = db.query(Aeropuerto).filter(Aeropuerto.id == aeropuerto_id).first()
-
-    if not aeropuerto:
-        db.close()
-        return {"error": "Aeropuerto no encontrado"}
-    
-    #Verificar si tiene vuelos asociados
-    vuelos_asociados = db.query(Vuelo).filter(
-        (Vuelo.id_origen == aeropuerto_id) |
-        (Vuelo.id_destino == aeropuerto_id)
+    existente = db.query(Usuarios).filter(
+        (Usuarios.email == usuario.email) |
+        (Usuarios.nombre_usuario == usuario.nombre_usuario)
     ).first()
 
-    if vuelos_asociados:
-        db.close()
-        return {"error": "No se puede eliminar el aeropuerto porque tiene vuelos asociados"}
-    
-    db.delete(aeropuerto)
+    if existente:
+        raise HTTPException(status_code=400, detail="Usuario ya existe")
+
+    nuevo = Usuarios(
+        nombre=usuario.nombre,
+        nombre_usuario=usuario.nombre_usuario,
+        email=usuario.email,
+        contraseña_hash=usuario.password,  # luego lo hasheamos
+        telefono=usuario.telefono
+    )
+
+    db.add(nuevo)
     db.commit()
-    db.close()
+    db.refresh(nuevo)
 
-    return {"message": "Aeropuerto eliminado correctamente"}
+    return nuevo
 
+    return {"mensaje": "Usuario creado"}
+
+# ==============================
+# lista todos los usuarios (solo muestra los que estan activos)
+# ==============================
+
+@app.get("/usuarios", response_model=list[UsuarioResponse])
+def listar_usuarios(db: Session = Depends(get_db)):
+    return db.query(Usuarios).filter(Usuarios.activo == True).all()
+
+# ==============================
+# Obtiene usuarios por id 
+# ==============================
+
+@app.get("/usuarios/{usuario_id}", response_model=UsuarioResponse)
+def obtener_usuario(usuario_id: str, db: Session = Depends(get_db)):
+
+    usuario = db.query(Usuarios).filter(
+        Usuarios.id == usuario_id
+    ).first()
+
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    return usuario
+
+# ==============================
+# actualiza usuarios por id
+# ==============================
+
+@app.put("/usuarios/{usuario_id}", response_model=UsuarioResponse)
+def actualizar_usuario(usuario_id: str, datos: UsuarioUpdate, db: Session = Depends(get_db)):
+
+    usuario = db.query(Usuarios).filter(
+        Usuarios.id == usuario_id
+    ).first()
+
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    for key, value in datos.model_dump(exclude_unset=True).items():
+        if key == "password":
+            setattr(usuario, "contraseña_hash", value)
+        else:
+            setattr(usuario, key, value)
+
+    db.commit()
+    db.refresh(usuario)
+
+    return usuario
+
+# ==============================
+# desactiva usuarios por id
+# ==============================
+
+@app.delete("/usuarios/{usuario_id}")
+def eliminar_usuario(usuario_id: str, db: Session = Depends(get_db)):
+
+    usuario = db.query(Usuarios).filter(
+        Usuarios.id == usuario_id
+    ).first()
+
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    usuario.activo = False
+    db.commit()
+
+    return {"mensaje": "Usuario desactivado correctamente"}
+
+# ==============================
+# Endpoint prueba conexión BD (no hace nada solo es para ver si funciona fastapi)
+# ==============================
 
 @app.get("/test-db")
 def test_db():
@@ -158,8 +159,9 @@ def test_db():
         result = connection.execute(text("SELECT 1"))
         return {"db_response": result.scalar()}
 
+# ==============================
+# Ejecutar servidor
+# ==============================
 
-
-"""@app.get("/")
-def read_root():
-    return {"Hello": "World"}"""
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
