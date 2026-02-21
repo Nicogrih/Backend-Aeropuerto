@@ -1,21 +1,27 @@
 from fastapi import FastAPI
-from database import engine, Base
+import uvicorn
+from src.database.config import engine, Base
 from sqlalchemy import text
-from database import SessionLocal
+from src.database.config import SessionLocal
 import uuid
 
 #Importar modelos de la carpeta models
-from models.aeropuerto import Aeropuerto
-from models.vuelo import Vuelo
-from models.pasajero import Pasajero
-from models.tarifa_clase import TarifaClase
-from models.asiento import Asiento
-from models.reserva import Reserva
+from src.entities.aeropuerto import Aeropuerto
+from src.entities.vuelo import Vuelo
+from src.entities.pasajero import Pasajero
+from src.entities.tarifa_clase import TarifaClase
+from src.entities.asiento import Asiento
+from src.entities.reserva import Reserva
 
 #Verificar el estado de la reserva
 from datetime import datetime, timedelta
 
 app = FastAPI()
+
+if __name__ == "__main__":
+    uvicorn.run(app, host= "0.0.0.0", port=8000)
+
+
 
 #Crea las tablas automáticamente al iniciar
 Base.metadata.create_all(bind=engine)
@@ -165,7 +171,7 @@ def test_db():
         result = connection.execute(text("SELECT 1"))
         return {"db_response": result.scalar()}
 
-
+""""
 #crear pasajeros manualmente
 @app.post("/pasajeros")
 def crear_pasajeros(
@@ -470,7 +476,7 @@ def cancelar_reserva(reserva_id: str):
     db.commit()
     db.close()
 
-    return {"message": "Reserva cancelada"}
+    return {"message": "Reserva cancelada"}"""
 
 """@app.get("/")
 def read_root():
