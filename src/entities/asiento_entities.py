@@ -2,7 +2,7 @@ import uuid
 from sqlalchemy import Column, String, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
-from database import Base
+from src.database.config import Base
 
 class Asiento(Base):
     __tablename__ = "asiento"
